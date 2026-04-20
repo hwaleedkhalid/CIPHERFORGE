@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherForge — Encrypt & Decrypt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-void: #080a0f;
+    --bg-deep: #0d1018;
+    --bg-panel: #111520;
+    --bg-card: #161b28;
+    --bg-input: #0f1319;
+    --red-hot: #c0392b;
+    --red-glow: #e74c3c;
+    --red-dim: #7b1a14;
+    --red-muted: #3d1510;
+    --accent-steel: #2a3a5c;
+    --accent-line: #1e2d47;
+    --text-primary: #e8ecf4;
+    --text-secondary: #8a93a8;
+    --text-muted: #4a5268;
+    --text-red: #e05c4e;
+    --border-dark: #1a2035;
+    --border-mid: #252f47;
+    --gold: #c9a227;
+    --gold-dim: #6b5010;
+  }
+
+  body {
+    background: var(--bg-void);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === BACKGROUND === */
+  .bg-layer {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% -10%, rgba(192,57,43,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(30,45,71,0.4) 0%, transparent 60%),
+      var(--bg-void);
+  }
+  .scan-lines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px);
+    animation: scanmove 8s linear infinite;
+  }
+  @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 40px; } }
+
+  .corner-kanji {
+    position: fixed; font-family: serif; font-size: 160px; font-weight: 900;
+    color: rgba(192,57,43,0.04); pointer-events: none; z-index: 0; line-height: 1;
+    user-select: none;
+  }
+  .corner-kanji.tl { top: -20px; left: -10px; }
+  .corner-kanji.br { bottom: -20px; right: -10px; }
+
+  /* === LAYOUT === */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 980px; margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* === HEADER === */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 0 20px;
+    border-bottom: 1px solid var(--border-dark);
+    margin-bottom: 48px;
+  }
+  .logo-group { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 42px; height: 42px;
+    border: 1.5px solid var(--red-hot);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: var(--red-muted);
+  }
+  .logo-mark svg { width: 22px; height: 22px; fill: var(--red-glow); }
+  .logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; color: var(--text-primary); }
+  .logo-sub { font-size: 11px; letter-spacing: 4px; color: var(--text-muted); text-transform: uppercase; margin-top: -4px; }
+  .header-tag {
+    font-size: 11px; letter-spacing: 3px; color: var(--text-muted);
+    border: 1px solid var(--border-mid);
+    padding: 6px 14px;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    background: var(--bg-panel);
+  }
+  .header-tag span { color: var(--text-red); }
+
+  /* === HERO === */
+  .hero { text-align: center; margin-bottom: 52px; }
+  .hero h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 8vw, 90px);
+    letter-spacing: 6px;
+    line-height: 0.92;
+    color: var(--text-primary);
+    position: relative; display: inline-block;
+  }
+  .hero h1 .accent { color: var(--red-hot); }
+  .hero h1::after {
+    content: '';
+    position: absolute; bottom: -6px; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--red-hot), transparent);
+  }
+  .hero-sub {
+    margin-top: 20px; font-size: 14px; letter-spacing: 3px;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+
+  /* === MODE TOGGLE === */
+  .mode-toggle {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; margin-bottom: 40px;
+  }
+  .mode-btn {
+    padding: 10px 36px; font-family: 'Rajdhani', sans-serif;
+    font-size: 13px; font-weight: 600; letter-spacing: 3px;
+    text-transform: uppercase; cursor: pointer;
+    border: 1px solid var(--border-mid); background: var(--bg-panel);
+    color: var(--text-muted); transition: all 0.2s; position: relative;
+    outline: none;
+  }
+  .mode-btn:first-child { clip-path: polygon(0% 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 0% 100%); padding-right: 42px; }
+  .mode-btn:last-child { clip-path: polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%); padding-left: 42px; margin-left: -2px; }
+  .mode-btn.active { background: var(--red-muted); border-color: var(--red-hot); color: var(--text-red); }
+
+  /* === MAIN GRID === */
+  .forge-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .forge-grid { grid-template-columns: 1fr; } }
+
+  /* === PANEL === */
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark);
+    position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--red-hot) 40%, var(--red-hot) 60%, transparent);
+    opacity: 0.7;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border-dark);
+    background: var(--bg-panel);
+  }
+  .panel-label {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-muted); display: flex; align-items: center; gap: 8px;
+  }
+  .panel-label::before {
+    content: ''; width: 6px; height: 6px;
+    background: var(--red-hot); display: block;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+  .panel-body { padding: 20px; }
+
+  /* === INPUTS === */
+  textarea, input[type="text"], input[type="password"], select {
+    width: 100%; background: var(--bg-input);
+    border: 1px solid var(--border-mid);
+    color: var(--text-primary); outline: none;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; transition: border-color 0.2s;
+    appearance: none;
+  }
+  textarea { resize: vertical; min-height: 140px; padding: 14px; line-height: 1.6; }
+  textarea:focus, input:focus, select:focus { border-color: var(--red-hot); }
+  input[type="text"], input[type="password"] { padding: 10px 14px; height: 42px; }
+
+  select {
+    padding: 10px 36px 10px 14px; height: 42px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a93a8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  select option { background: var(--bg-card); }
+
+  /* === FORM ROWS === */
+  .form-row { margin-bottom: 16px; }
+  .form-label {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-muted); display: block; margin-bottom: 7px;
+  }
+  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* === CHAR COUNT === */
+  .char-count {
+    font-size: 11px; color: var(--text-muted); text-align: right;
+    margin-top: 5px; font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* === KEY SECTION === */
+  .key-section {
+    border: 1px solid var(--border-dark); padding: 14px;
+    background: rgba(192,57,43,0.04); margin-bottom: 16px;
+    position: relative;
+  }
+  .key-section::before {
+    content: 'KEY';
+    position: absolute; top: -1px; left: 14px;
+    background: var(--red-dim); color: var(--text-red);
+    font-size: 9px; letter-spacing: 3px; padding: 2px 8px;
+    transform: translateY(-50%);
+  }
+  .key-hint {
+    font-size: 11px; color: var(--text-muted); margin-top: 7px;
+    font-style: italic; font-family: 'Rajdhani', sans-serif;
+  }
+
+  /* === ALGORITHM BADGES === */
+  .algo-info {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+  }
+  .algo-badge {
+    font-size: 10px; letter-spacing: 2px; padding: 4px 10px;
+    border: 1px solid var(--border-mid); color: var(--text-muted);
+    text-transform: uppercase; cursor: pointer; transition: all 0.15s;
+    background: var(--bg-panel);
+  }
+  .algo-badge.active { border-color: var(--red-hot); color: var(--text-red); background: var(--red-muted); }
+  .algo-badge:hover:not(.active) { border-color: var(--border-mid); color: var(--text-secondary); }
+
+  /* === EXECUTE BUTTON === */
+  .btn-execute {
+    width: 100%; padding: 14px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; letter-spacing: 4px;
+    color: var(--text-primary); cursor: pointer;
+    border: none; outline: none;
+    background: var(--red-hot);
+    clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%);
+    transition: background 0.2s, transform 0.1s;
+    position: relative; overflow: hidden;
+  }
+  .btn-execute:hover { background: var(--red-glow); }
+  .btn-execute:active { transform: scale(0.98); }
+  .btn-execute::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.07) 50%, transparent 100%);
+    transform: translateX(-100%);
+    transition: transform 0.4s;
+  }
+  .btn-execute:hover::after { transform: translateX(100%); }
+
+  /* === OUTPUT PANEL === */
+  .output-area {
+    background: var(--bg-input); border: 1px solid var(--border-mid);
+    padding: 16px; min-height: 140px; font-family: 'Share Tech Mono', monospace;
+    font-size: 12.5px; line-height: 1.7; color: #6dffc6;
+    word-break: break-all; white-space: pre-wrap;
+    position: relative;
+  }
+  .output-area.empty { color: var(--text-muted); font-style: italic; }
+  .output-area.error-state { color: #ff6b5b; }
+  .output-area.hashing { color: var(--gold); }
+
+  .output-actions {
+    display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;
+  }
+  .btn-sm {
+    padding: 7px 16px; font-family: 'Rajdhani', sans-serif;
+    font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; border: 1px solid var(--border-mid);
+    background: var(--bg-panel); color: var(--text-secondary);
+    transition: all 0.15s; outline: none;
+  }
+  .btn-sm:hover { border-color: var(--red-hot); color: var(--text-red); }
+  .btn-sm.success { border-color: #2ecc71; color: #2ecc71; }
+
+  /* === INFO CARDS === */
+  .info-strip {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-top: 32px;
+  }
+  @media (max-width: 600px) { .info-strip { grid-template-columns: 1fr; } }
+  .info-card {
+    background: var(--bg-card); border: 1px solid var(--border-dark);
+    padding: 18px; position: relative; overflow: hidden;
+  }
+  .info-card::before {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-steel), transparent);
+  }
+  .info-card-icon {
+    font-size: 22px; margin-bottom: 10px; color: var(--red-hot);
+    font-family: serif;
+  }
+  .info-card-title {
+    font-size: 13px; font-weight: 600; letter-spacing: 1px;
+    color: var(--text-primary); margin-bottom: 5px;
+  }
+  .info-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+  /* === STATUS BAR === */
+  .status-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; margin-top: 28px;
+    border-top: 1px solid var(--border-dark);
+    font-size: 11px; letter-spacing: 1.5px; color: var(--text-muted);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #2ecc71; display: inline-block; margin-right: 7px;
+    box-shadow: 0 0 6px #2ecc71;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* === GLITCH === */
+  .glitch-text {
+    position: relative; display: inline-block;
+  }
+  .glitch-text::before, .glitch-text::after {
+    content: attr(data-text);
+    position: absolute; top: 0; left: 0;
+    font-family: inherit; font-size: inherit;
+  }
+  .glitch-text::before {
+    color: #e74c3c; clip-path: polygon(0 30%, 100% 30%, 100% 50%, 0 50%);
+    animation: glitch-a 4s infinite steps(1);
+  }
+  .glitch-text::after {
+    color: #3498db; clip-path: polygon(0 60%, 100% 60%, 100% 75%, 0 75%);
+    animation: glitch-b 4s infinite steps(1) 0.3s;
+  }
+  @keyframes glitch-a {
+    0%,90%,100% { transform: translateX(0); opacity: 0; }
+    91% { transform: translateX(-2px); opacity: 1; }
+    93% { transform: translateX(2px); opacity: 1; }
+    95% { transform: translateX(0); opacity: 0; }
+  }
+  @keyframes glitch-b {
+    0%,92%,100% { transform: translateX(0); opacity: 0; }
+    93% { transform: translateX(2px); opacity: 1; }
+    96% { transform: translateX(-1px); opacity: 1; }
+    98% { transform: translateX(0); opacity: 0; }
+  }
+
+  /* === PROCESSING ANIMATION === */
+  @keyframes blink-cursor { 0%,100% { opacity:1; } 50% { opacity:0; } }
+  .cursor { animation: blink-cursor 0.8s infinite; }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg-void); }
+  ::-webkit-scrollbar-thumb { background: var(--red-dim); }
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="scan-lines"></div>
+<div class="corner-kanji tl">暗</div>
+<div class="corner-kanji br">号</div>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-group">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L4 6v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V6l-8-4zm0 2.2l6 3.2v5.6c0 4.3-2.9 8.3-6 9.6-3.1-1.3-6-5.3-6-9.6V7.4l6-3.2zm-1 5.8v5h2v-5h-2zm0 6v2h2v-2h-2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">CIPHERFORGE</div>
+        <div class="logo-sub">Encryption Engine</div>
+      </div>
+    </div>
+    <div class="header-tag">ENCODE <span>//</span> DECODE</div>
+  </header>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1><span class="glitch-text" data-text="FORGE YOUR">FORGE YOUR</span> <span class="accent">CIPHER</span></h1>
+    <p class="hero-sub">Military-grade text encryption &amp; decryption toolkit</p>
+  </div>
+
+  <!-- MODE TOGGLE -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btnEncrypt" onclick="setMode('encrypt')">⚔ Encrypt</button>
+    <button class="mode-btn" id="btnDecrypt" onclick="setMode('decrypt')">🔓 Decrypt</button>
+  </div>
+
+  <!-- ALGORITHM QUICK-SELECT -->
+  <div class="algo-info" id="algoBadges">
+    <div class="algo-badge active" onclick="selectAlgo('caesar')">Caesar</div>
+    <div class="algo-badge" onclick="selectAlgo('vigenere')">Vigenère</div>
+    <div class="algo-badge" onclick="selectAlgo('rot13')">ROT-13</div>
+    <div class="algo-badge" onclick="selectAlgo('aes')">AES-256</div>
+    <div class="algo-badge" onclick="selectAlgo('base64')">Base64</div>
+    <div class="algo-badge" onclick="selectAlgo('sha256')">SHA-256</div>
+    <div class="algo-badge" onclick="selectAlgo('md5')">MD5</div>
+  </div>
+
+  <!-- MAIN FORGE GRID -->
+  <div class="forge-grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Plaintext Input</span>
+        <span style="font-size:11px;color:var(--text-muted);letter-spacing:1px;">INPUT</span>
+      </div>
+      <div class="panel-body">
+
+        <div class="form-row">
+          <label class="form-label">Algorithm</label>
+          <select id="algoSelect" onchange="onAlgoChange()">
+            <optgroup label="Classic Ciphers">
+              <option value="caesar">Caesar Cipher</option>
+              <option value="vigenere">Vigenère Cipher</option>
+              <option value="rot13">ROT-13</option>
+            </optgroup>
+            <optgroup label="Modern Encryption">
+              <option value="aes">AES-256 (CryptoJS)</option>
+              <option value="base64">Base64 Encode/Decode</option>
+            </optgroup>
+            <optgroup label="Hash Functions (one-way)">
+              <option value="sha256">SHA-256</option>
+              <option value="md5">MD5</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="key-section" id="keySection">
+          <div class="form-row" id="keyRow1" style="margin-bottom:0">
+            <label class="form-label" id="keyLabel">Shift Key (Caesar)</label>
+            <input type="text" id="keyInput" placeholder="Enter key..." value="3">
+          </div>
+          <div class="key-hint" id="keyHint">Integer shift value, e.g. 3 shifts A→D</div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Text to process</label>
+          <textarea id="inputText" placeholder="Enter your plaintext here..." oninput="updateCharCount()"></textarea>
+          <div class="char-count"><span id="charCount">0</span> characters</div>
+        </div>
+
+        <button class="btn-execute" id="executeBtn" onclick="execute()">
+          <span id="btnLabel">⚔ FORGE CIPHER</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" id="outputLabel">Ciphertext Output</span>
+        <span style="font-size:11px;color:var(--text-muted);letter-spacing:1px;">OUTPUT</span>
+      </div>
+      <div class="panel-body">
+
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <label class="form-label" style="margin:0">Result</label>
+            <div style="font-size:10px;letter-spacing:2px;color:var(--text-muted)" id="algoTag">CAESAR CIPHER</div>
+          </div>
+          <div class="output-area empty" id="outputArea">
+            Awaiting input...<span class="cursor">█</span>
+          </div>
+        </div>
+
+        <div class="output-actions">
+          <button class="btn-sm" onclick="clearAll()">Clear</button>
+          <button class="btn-sm" id="copyBtn" onclick="copyOutput()">Copy Result</button>
+        </div>
+
+        <!-- OUTPUT STATS -->
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-dark);">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+            <div>
+              <div style="font-size:20px;font-family:'Bebas Neue',sans-serif;color:var(--text-primary)" id="statIn">0</div>
+              <div style="font-size:10px;letter-spacing:1.5px;color:var(--text-muted)">INPUT CHARS</div>
+            </div>
+            <div>
+              <div style="font-size:20px;font-family:'Bebas Neue',sans-serif;color:var(--red-hot)" id="statOut">0</div>
+              <div style="font-size:10px;letter-spacing:1.5px;color:var(--text-muted)">OUTPUT CHARS</div>
+            </div>
+            <div>
+              <div style="font-size:20px;font-family:'Bebas Neue',sans-serif;color:var(--gold)" id="statRatio">—</div>
+              <div style="font-size:10px;letter-spacing:1.5px;color:var(--text-muted)">RATIO</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HASH NOTE -->
+        <div id="hashNote" style="display:none;margin-top:14px;padding:10px;background:rgba(201,162,39,0.07);border:1px solid var(--gold-dim);">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:4px;">⚠ HASH NOTICE</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.5">Hash functions are one-way only. Decryption is not possible for hash outputs.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ALGORITHM INFO CARDS -->
+  <div class="info-strip">
+    <div class="info-card" id="card0">
+      <div class="info-card-icon" id="cardIcon0">凱</div>
+      <div class="info-card-title" id="cardTitle0">Caesar Cipher</div>
+      <div class="info-card-desc" id="cardDesc0">A substitution cipher that shifts each letter by a fixed number. One of history's oldest encryption methods, used by Julius Caesar.</div>
+    </div>
+    <div class="info-card" id="card1">
+      <div class="info-card-icon" id="cardIcon1">盾</div>
+      <div class="info-card-title" id="cardTitle1">Strength Level</div>
+      <div class="info-card-desc" id="cardDesc1">Shift of 3 (default). Brute-forceable with only 25 possibilities. Use for educational purposes or light obfuscation.</div>
+    </div>
+    <div class="info-card" id="card2">
+      <div class="info-card-icon" id="cardIcon2">鍵</div>
+      <div class="info-card-title" id="cardTitle2">Key Type</div>
+      <div class="info-card-desc" id="cardDesc2">Numeric shift value (1–25). Non-alphabetic characters like numbers and punctuation are passed through unchanged.</div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div><span class="status-dot"></span>SYSTEM READY — ALL OPERATIONS CLIENT-SIDE</div>
+    <div>NO DATA LEAVES YOUR BROWSER</div>
+  </div>
+
+</div>
+
+<script>
+let currentMode = 'encrypt';
+let currentAlgo = 'caesar';
+
+const algoMeta = {
+  caesar: {
+    name: 'CAESAR CIPHER', keyLabel: 'Shift Key (0–25)', keyPlaceholder: '3', keyHint: 'Integer shift 1–25, e.g. 3 shifts A→D', keyType: 'text',
+    cards: ['凱','盾','鍵'],
+    cardTitles: ['Caesar Cipher','Strength Level','Key Type'],
+    cardDescs: ['A substitution cipher shifting each letter by a fixed number. Used by Julius Caesar himself.','Weak by modern standards. Only 25 possible shifts — brute-forceable. Good for learning.','Numeric integer (1–25). Non-alpha characters pass through unchanged.'],
+    isHash: false, hasKey: true
+  },
+  vigenere: {
+    name: 'VIGENÈRE CIPHER', keyLabel: 'Keyword (letters only)', keyPlaceholder: 'SECRET', keyHint: 'Alphabetic keyword, e.g. KEY — applied cyclically to plaintext', keyType: 'text',
+    cards: ['維','密','字'],
+    cardTitles: ['Vigenère Cipher','Polyalphabetic','Key Type'],
+    cardDescs: ['A polyalphabetic substitution cipher using a keyword to produce variable shifts. Known as "Le Chiffre Indéchiffrable" for centuries.','Far stronger than Caesar — the same letter maps to different ciphertext depending on key position.','Alphabetic keyword. Longer keys with more variety are significantly harder to crack.'],
+    isHash: false, hasKey: true
+  },
+  rot13: {
+    name: 'ROT-13', keyLabel: '', keyPlaceholder: '', keyHint: '', keyType: 'text',
+    cards: ['回','転','軸'],
+    cardTitles: ['ROT-13','Self-Inverse','Usage'],
+    cardDescs: ['A special case of Caesar cipher with a fixed shift of 13. Applying it twice restores the original text.','Encrypting and decrypting are identical operations — just apply ROT-13 twice to recover plaintext.','Commonly used to hide spoilers online. Not suitable for real security purposes.'],
+    isHash: false, hasKey: false
+  },
+  aes: {
+    name: 'AES-256', keyLabel: 'Passphrase', keyPlaceholder: 'Enter passphrase...', keyHint: 'Strong passphrase required — used to derive AES-256 key via PBKDF2', keyType: 'password',
+    cards: ['鋼','暗','号'],
+    cardTitles: ['AES-256','Military Grade','Passphrase'],
+    cardDescs: ['Advanced Encryption Standard with 256-bit keys. The gold standard for symmetric encryption worldwide.','Used by governments, militaries, and financial institutions. Effectively unbreakable with a strong passphrase.','Your passphrase is used to derive the encryption key locally. It never leaves your browser.'],
+    isHash: false, hasKey: true
+  },
+  base64: {
+    name: 'BASE64', keyLabel: '', keyPlaceholder: '', keyHint: '', keyType: 'text',
+    cards: ['変','換','字'],
+    cardTitles: ['Base64','Encoding, Not Encryption','Use Case'],
+    cardDescs: ['Base64 encodes binary data as ASCII text using a 64-character alphabet. Not encryption — just encoding.','Provides zero security. Anyone can decode Base64 instantly. Used for data transport, not confidentiality.','Commonly used in email attachments, data URLs, and HTTP Authorization headers.'],
+    isHash: false, hasKey: false
+  },
+  sha256: {
+    name: 'SHA-256 HASH', keyLabel: '', keyPlaceholder: '', keyHint: '', keyType: 'text',
+    cards: ['散','布','鑑'],
+    cardTitles: ['SHA-256','One-Way Function','Output'],
+    cardDescs: ['A cryptographic hash function producing a fixed 256-bit (64 hex char) digest. Cannot be reversed.','Not encryption — a hash. The same input always produces the same output. Decryption is impossible.','Used for password storage, data integrity checks, digital signatures, and blockchain technology.'],
+    isHash: true, hasKey: false
+  },
+  md5: {
+    name: 'MD5 HASH', keyLabel: '', keyPlaceholder: '', keyHint: '', keyType: 'text',
+    cards: ['指','紋','鑑'],
+    cardTitles: ['MD5','Legacy Hash','Warning'],
+    cardDescs: ['Message Digest 5 produces a 128-bit (32 hex char) hash. Widely used but considered cryptographically broken.','Vulnerable to collision attacks. Do not use for security-critical applications — use SHA-256 instead.','Still useful for checksums and non-security data integrity. Not suitable for passwords.'],
+    isHash: true, hasKey: false
+  }
+};
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btnEncrypt').classList.toggle('active', mode === 'encrypt');
+  document.getElementById('btnDecrypt').classList.toggle('active', mode === 'decrypt');
+  const meta = algoMeta[currentAlgo];
+  if (meta.isHash && mode === 'decrypt') {
+    document.getElementById('btnLabel').textContent = '⚠ HASH IS ONE-WAY';
+  } else {
+    document.getElementById('btnLabel').textContent = mode === 'encrypt' ? '⚔ FORGE CIPHER' : '🔓 BREAK CIPHER';
+  }
+  document.getElementById('outputLabel').textContent = mode === 'encrypt' ? 'Ciphertext Output' : 'Plaintext Output';
+  clearOutput();
+}
+
+function selectAlgo(algo) {
+  currentAlgo = algo;
+  document.getElementById('algoSelect').value = algo;
+  document.querySelectorAll('.algo-badge').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick').includes(`'${algo}'`));
+  });
+  updateAlgoUI();
+}
+
+function onAlgoChange() {
+  currentAlgo = document.getElementById('algoSelect').value;
+  document.querySelectorAll('.algo-badge').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick').includes(`'${currentAlgo}'`));
+  });
+  updateAlgoUI();
+}
+
+function updateAlgoUI() {
+  const meta = algoMeta[currentAlgo];
+  const keySection = document.getElementById('keySection');
+  const keyInput = document.getElementById('keyInput');
+  
+  if (meta.hasKey) {
+    keySection.style.display = '';
+    document.getElementById('keyLabel').textContent = meta.keyLabel;
+    keyInput.placeholder = meta.keyPlaceholder;
+    document.getElementById('keyHint').textContent = meta.keyHint;
+    keyInput.type = meta.keyType;
+    keyInput.value = currentAlgo === 'caesar' ? '3' : (currentAlgo === 'vigenere' ? 'SECRET' : '');
+  } else {
+    keySection.style.display = 'none';
+  }
+
+  document.getElementById('algoTag').textContent = meta.name;
+  document.getElementById('hashNote').style.display = meta.isHash ? '' : 'none';
+
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`cardIcon${i}`).textContent = meta.cards[i];
+    document.getElementById(`cardTitle${i}`).textContent = meta.cardTitles[i];
+    document.getElementById(`cardDesc${i}`).textContent = meta.cardDescs[i];
+  }
+
+  if (meta.isHash && currentMode === 'decrypt') {
+    document.getElementById('btnLabel').textContent = '⚠ HASH IS ONE-WAY';
+  } else {
+    document.getElementById('btnLabel').textContent = currentMode === 'encrypt' ? '⚔ FORGE CIPHER' : '🔓 BREAK CIPHER';
+  }
+  clearOutput();
+}
+
+function updateCharCount() {
+  const txt = document.getElementById('inputText').value;
+  document.getElementById('charCount').textContent = txt.length;
+}
+
+function clearOutput() {
+  const out = document.getElementById('outputArea');
+  out.textContent = 'Awaiting input...';
+  out.innerHTML = 'Awaiting input...<span class="cursor">█</span>';
+  out.className = 'output-area empty';
+  document.getElementById('statIn').textContent = '0';
+  document.getElementById('statOut').textContent = '0';
+  document.getElementById('statRatio').textContent = '—';
+}
+
+function clearAll() {
+  document.getElementById('inputText').value = '';
+  document.getElementById('charCount').textContent = '0';
+  clearOutput();
+}
+
+function setOutput(text, isError = false, isHash = false) {
+  const out = document.getElementById('outputArea');
+  out.textContent = text;
+  out.className = isError ? 'output-area error-state' : (isHash ? 'output-area hashing' : 'output-area');
+  const inLen = document.getElementById('inputText').value.length;
+  document.getElementById('statIn').textContent = inLen;
+  document.getElementById('statOut').textContent = text.length;
+  const ratio = inLen > 0 ? (text.length / inLen).toFixed(2) + 'x' : '—';
+  document.getElementById('statRatio').textContent = ratio;
+}
+
+/* ============ ENCRYPTION ALGORITHMS ============ */
+
+function caesarEncrypt(text, shift) {
+  shift = ((shift % 26) + 26) % 26;
+  return text.split('').map(ch => {
+    if (ch >= 'a' && ch <= 'z') return String.fromCharCode(((ch.charCodeAt(0) - 97 + shift) % 26) + 97);
+    if (ch >= 'A' && ch <= 'Z') return String.fromCharCode(((ch.charCodeAt(0) - 65 + shift) % 26) + 65);
+    return ch;
+  }).join('');
+}
+
+function caesarDecrypt(text, shift) { return caesarEncrypt(text, -shift); }
+
+function vigenereEncrypt(text, key) {
+  key = key.toLowerCase().replace(/[^a-z]/g, '');
+  if (!key) return 'Key must contain at least one letter.';
+  let ki = 0;
+  return text.split('').map(ch => {
+    if (ch >= 'a' && ch <= 'z') {
+      const s = key.charCodeAt(ki % key.length) - 97;
+      ki++;
+      return String.fromCharCode(((ch.charCodeAt(0) - 97 + s) % 26) + 97);
+    }
+    if (ch >= 'A' && ch <= 'Z') {
+      const s = key.charCodeAt(ki % key.length) - 97;
+      ki++;
+      return String.fromCharCode(((ch.charCodeAt(0) - 65 + s) % 26) + 65);
+    }
+    return ch;
+  }).join('');
+}
+
+function vigenereDecrypt(text, key) {
+  key = key.toLowerCase().replace(/[^a-z]/g, '');
+  if (!key) return 'Key must contain at least one letter.';
+  let ki = 0;
+  return text.split('').map(ch => {
+    if (ch >= 'a' && ch <= 'z') {
+      const s = key.charCodeAt(ki % key.length) - 97;
+      ki++;
+      return String.fromCharCode(((ch.charCodeAt(0) - 97 - s + 26) % 26) + 97);
+    }
+    if (ch >= 'A' && ch <= 'Z') {
+      const s = key.charCodeAt(ki % key.length) - 97;
+      ki++;
+      return String.fromCharCode(((ch.charCodeAt(0) - 65 - s + 26) % 26) + 65);
+    }
+    return ch;
+  }).join('');
+}
+
+function rot13(text) {
+  return text.split('').map(ch => {
+    if (ch >= 'a' && ch <= 'z') return String.fromCharCode(((ch.charCodeAt(0) - 97 + 13) % 26) + 97);
+    if (ch >= 'A' && ch <= 'Z') return String.fromCharCode(((ch.charCodeAt(0) - 65 + 13) % 26) + 65);
+    return ch;
+  }).join('');
+}
+
+function execute() {
+  const input = document.getElementById('inputText').value.trim();
+  if (!input) {
+    setOutput('⚠ No input provided. Please enter some text to process.', true);
+    return;
+  }
+  const meta = algoMeta[currentAlgo];
+  const key = document.getElementById('keyInput').value;
+
+  if (meta.hasKey && !key) {
+    setOutput('⚠ A key is required for this algorithm. Please enter a key.', true);
+    return;
+  }
+
+  if (meta.isHash && currentMode === 'decrypt') {
+    setOutput('⚠ Hash functions are one-way. Decryption is mathematically impossible.\nSwitch to Encrypt mode to compute a hash.', true);
+    return;
+  }
+
+  let result = '';
+  try {
+    if (currentAlgo === 'caesar') {
+      const shift = parseInt(key);
+      if (isNaN(shift)) { setOutput('⚠ Caesar key must be an integer (e.g. 3).', true); return; }
+      result = currentMode === 'encrypt' ? caesarEncrypt(input, shift) : caesarDecrypt(input, shift);
+    } else if (currentAlgo === 'vigenere') {
+      result = currentMode === 'encrypt' ? vigenereEncrypt(input, key) : vigenereDecrypt(input, key);
+    } else if (currentAlgo === 'rot13') {
+      result = rot13(input);
+    } else if (currentAlgo === 'aes') {
+      if (currentMode === 'encrypt') {
+        result = CryptoJS.AES.encrypt(input, key).toString();
+      } else {
+        try {
+          const bytes = CryptoJS.AES.decrypt(input, key);
+          result = bytes.toString(CryptoJS.enc.Utf8);
+          if (!result) throw new Error('Bad key or malformed ciphertext');
+        } catch (e) {
+          setOutput('⚠ Decryption failed. Check your passphrase and ensure the input is valid AES ciphertext.', true);
+          return;
+        }
+      }
+    } else if (currentAlgo === 'base64') {
+      if (currentMode === 'encrypt') {
+        result = btoa(unescape(encodeURIComponent(input)));
+      } else {
+        try {
+          result = decodeURIComponent(escape(atob(input)));
+        } catch (e) {
+          setOutput('⚠ Invalid Base64 input. Ensure the text is valid Base64-encoded data.', true);
+          return;
+        }
+      }
+    } else if (currentAlgo === 'sha256') {
+      result = CryptoJS.SHA256(input).toString();
+    } else if (currentAlgo === 'md5') {
+      result = CryptoJS.MD5(input).toString();
+    }
+  } catch (err) {
+    setOutput('⚠ Processing error: ' + err.message, true);
+    return;
+  }
+
+  if (result.includes('Key must contain')) { setOutput('⚠ ' + result, true); return; }
+  setOutput(result, false, meta.isHash);
+
+  // Flash animation
+  const btn = document.getElementById('executeBtn');
+  btn.style.background = '#27ae60';
+  setTimeout(() => { btn.style.background = ''; }, 300);
+}
+
+function copyOutput() {
+  const out = document.getElementById('outputArea');
+  const text = out.textContent;
+  if (!text || text.includes('Awaiting') || text.includes('⚠')) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('success');
+    setTimeout(() => { btn.textContent = 'Copy Result'; btn.classList.remove('success'); }, 2000);
+  });
+}
+
+// Keyboard shortcut: Ctrl+Enter to execute
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') execute();
+});
+
+// Init
+updateAlgoUI();
+</script>
+</body>
+</html>
